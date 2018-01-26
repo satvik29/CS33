@@ -1,0 +1,12 @@
+Satvik Anand
+404823011
+
+1) The value that emacs calculates is slightly higher than the actual value so it is unable to store it and hence truncates the ending digits of the answer.
+
+2) The smallest integer than emacs can handle is -2^61 according to the GNU manual and that's why the number printed was -2305843009213693952.
+
+3) Emacs calculation is based on elisp and elisp does its computations by adding a marker. In the elisp code we can see that the marker is multiplied by 4 and then 2 is added to it. Thus when we run this command in gdb, the final value in rax is 6. Elisp then has to undo the marker in rax so it subtracts 2 and divides by 4. This gives us 1, which is then outputted on the screen. 
+
+4) There would be no problems because using the fwrapv flag we have defined what overflow is for the compiler and this means that there is no undefined behavior when there is overflow. However we can still get certain mathematically wrong answers which involve overflow and this would cause problems for the user. 
+
+5) The problem is a segmentation fault which occurs in the function __strcpy_sse2_unaligned (), The instruction that causes this problem is movdqu %xmm7,-0x10(%rdi), because the computer attempts to store a 16 byte value in an 8 byte register, which causes an error.

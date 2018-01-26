@@ -1,0 +1,13 @@
+Satvik Anand
+404823011
+
+2.89)
+A) It will always be 1 because when converting integer to float, there is rounding, and when converting integer to double to float there is no precision lost but when you convert from double to float there is rounding and this rounding ends up being the same as when converting integer to float.
+
+B) It will be 0 because if either x or y is Tmin, the left side of the equation will overflow whereas the right side will not since there is no precision lost when converting integer to double. This assumes fwrapv. 
+
+C) It will always be 1 because dx, dy, and dz have all been converted from integers and hence there was no precision lost. So when they are added, their sums can be represented using double without losing precision so the entire operation because associative as there is no rounding and no overflow.
+
+D) It will be 0 if dx is Tmax and dy is Tmax as well, then the value of dx * dy will overflow and there will be rounding and overflow. This assumes fwrapv.
+
+E) It will be 0. If either dx or dz is 0, we get NaN, which is not equal to anything. 

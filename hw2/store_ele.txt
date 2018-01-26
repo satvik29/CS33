@@ -1,0 +1,5 @@
+A. Xd is the address of the starting location of the array.
+R is the rows, S is the columns, T is the height of the address. 
+Formula = Xd + L((T*S)i + T*j + k)
+
+B. R = 5, S = 7, T = 13.

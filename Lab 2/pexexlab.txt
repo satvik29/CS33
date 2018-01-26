@@ -1,0 +1,17 @@
+Satvik Anand
+404823011
+
+The first step is to make sure that the executable works by using the command ~eggert/bin64/bin/emacs-25.2 -Q -batch -eval '(print (* 1250284240 -1844255039))’.
+
+After we have established that the executable works, we use the command gdb --args
+~eggert/bin64/bin/emacs-25.2 -batch -eval '(print (* 1250284240 -1844255039))' to make sure that the executable runs with the specific arguments enabled.
+
+Then we set the breakpoint for the Ftimes function. You do this by using the command break Ftimes.
+
+Then we need to make sure that output is in the format that the spec needs and we can do this by using the set dissassemble-next-line on followed by the disas command.
+
+Now we are ready to step into the function and see the machine level instructions and we can do this using si, followed by info registers to get information on what registers have been changed after every instructions. We can then repeat the si and info registers to repeatedly get the information regarding the registers until we reach the end of the arith_driver function. 
+
+For examining the integer overflow, I created 3 test files with the function and compiled them differently according to the instructions given in the spec. After looking through the machine code, I was able to answer the required questions.
+
+For the questions I had to learn about Elisp through Google and some guiding documents I found online. I used gdb and examined emacs source code to understand how it works and get some perspective on how to answer the questions. 

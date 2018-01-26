@@ -1,0 +1,7 @@
+A. False. (1 > INT_MIN) != (-1 > -INT_MIN)
+B. True. The equation can be rearranged such that it gives you the same result on both sides.
+C. True. This is because ~x = -1 - x.
+D. False. Changing a signed integer to an unsigned integer will not change the bit pattern.
+E. True. After analyzing both the positive and negative cases for x, realize that the final answer will always be the same.
+F. True. After simplying -1 << we realize it's INT_MIN and analyzing the positive and negative cases we see that it will always give 1.
+G. False. If x is -1 the right hand side is 127 but the left is -1. 

@@ -1,0 +1,5 @@
+A. The conditional test always succeeds because maxbytes is signed whereas sizeof always returns an unsigned value. Whenever you perform an operation between an unsigned and a signed value the answer is always unsigned. 
+LF
+B. if (maxbytes >= sizeof(val)) LF
+
+

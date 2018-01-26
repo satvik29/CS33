@@ -1,0 +1,124 @@
+Satvik Anand
+404823011
+
+First I downloaded transferred the openmp file to the linux server. I then unzipped the file and opened the
+ openmplab directory. 
+
+The next step was analyzing the bottleneck. I created a file called func_orig.c which contained the 
+original code so that I could check the seq times along with the omp times.
+
+I first wanted to the check the original run time. For this I did make seq and then ./seq. I got the 
+following results after average out times when I ran it a few times:
+FUNC TIME : 0.772011
+TOTAL TIME : 2.576570
+
+The next step was to get the flat profile, for which I ran the commands make clean,  make seq GPROF=1, 
+ gprof seq | less. I got the following results:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 74.49      0.61     0.61       15    40.72    42.18  func1
+ 14.04      0.73     0.12  5177344     0.00     0.00  rand2
+  3.66      0.76     0.03   491520     0.00     0.00  findIndexBin
+  2.44      0.78     0.02        2    10.01    10.01  init
+  1.22      0.79     0.01       15     0.67     2.67  func5
+  1.22      0.80     0.01        1    10.01   103.30  addSeed
+  1.22      0.81     0.01        1    10.01    10.01  imdilateDisk
+  1.22      0.82     0.01                             sequence
+  0.61      0.82     0.01       15     0.33     0.33  rand1
+  0.00      0.82     0.00   983042     0.00     0.00  round
+  0.00      0.82     0.00       16     0.00     0.00  dilateMatrix
+  0.00      0.82     0.00       15     0.00     0.00  func2
+  0.00      0.82     0.00       15     0.00     0.00  func3
+  0.00      0.82     0.00       15     0.00     0.00  func4
+  0.00      0.82     0.00        2     0.00     0.00  get_time
+  0.00      0.82     0.00        1     0.00     0.00  elapsed_time
+  0.00      0.82     0.00        1     0.00     0.00  fillMatrix
+  0.00      0.82     0.00        1     0.00     0.00  func0
+  0.00      0.82     0.00        1     0.00     0.00  getNeighbors
+
+I can see that func1 is the bottleneck and I should modify this one. I could get additional speedup if I 
+modify func5 and the rest of the functions as well.
+
+After modifying all of the functions I ran make omp, ./omp.
+I got the following result:
+FUNC TIME : 0.046810
+TOTAL TIME : 1.880427
+
+My flat profile was as follows:
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 62.03      0.44     0.44       28    15.73    17.20  filter
+ 25.38      0.62     0.18  4219670     0.00     0.00  rand2
+  5.64      0.66     0.04    10852     0.00     0.00  findIndexBin
+  2.82      0.68     0.02        1    20.02   199.12  addSeed
+  1.41      0.69     0.01        2     5.01     5.01  init
+  1.41      0.70     0.01        1    10.01    10.01  imdilateDisk
+  1.41      0.71     0.01                             sequence
+  0.00      0.71     0.00    39767     0.00     0.00  round
+  0.00      0.71     0.00       16     0.00     0.00  dilateMatrix
+  0.00      0.71     0.00       15     0.00     0.00  func1
+  0.00      0.71     0.00       15     0.00     0.00  func2
+  0.00      0.71     0.00       15     0.00     0.00  func3
+  0.00      0.71     0.00       15     0.00     0.00  func4
+  0.00      0.71     0.00       15     0.00     0.00  func5
+  0.00      0.71     0.00       15     0.00     0.00  rand1
+  0.00      0.71     0.00        2     0.00     0.00  get_time
+  0.00      0.71     0.00        1     0.00     0.00  elapsed_time
+  0.00      0.71     0.00        1     0.00     0.00  fillMatrix
+  0.00      0.71     0.00        1     0.00     0.00  func0
+  0.00      0.71     0.00        1     0.00     0.00  getNeighbors
+
+So my functions have become significantly faster.
+
+The last step was checking if there was any change in the output as well as checking for memory leaks.
+For this, I used the command make check and got the following output:
+gcc -o omp  -O3 -fopenmp filter.c main.c func.c util.c -lm
+cp omp filter
+./filter
+FUNC TIME : 0.068499
+TOTAL TIME : 1.890328
+diff --brief correct.txt output.txt
+
+To check for memory leaks I ran the commands make omp MTRACE=1 to enable memory tracing, then ./omp and
+ then make memcheck. I got the following output.
+0x0000000001492070   0x1e90  at 0x7f2c0d880869
+0x0000000001493f10     0xc0  at 0x7f2c0d880869
+0x0000000001493fe0     0xf8  at 0x7f2c0d8808b9
+0x00000000014940e0    0x240  at 0x7f2c0ddb0f45
+0x0000000001494330    0x240  at 0x7f2c0ddb0f45
+0x0000000001494580    0x240  at 0x7f2c0ddb0f45
+0x00000000014947d0    0x240  at 0x7f2c0ddb0f45
+0x0000000001494a20    0x240  at 0x7f2c0ddb0f45
+0x0000000001494c70    0x240  at 0x7f2c0ddb0f45
+0x0000000001494ec0    0x240  at 0x7f2c0ddb0f45
+0x0000000001495110    0x240  at 0x7f2c0ddb0f45
+0x0000000001495360    0x240  at 0x7f2c0ddb0f45
+0x00000000014955b0    0x240  at 0x7f2c0ddb0f45
+0x0000000001495800    0x240  at 0x7f2c0ddb0f45
+0x0000000001495a50    0x240  at 0x7f2c0ddb0f45
+0x0000000001495ca0    0x240  at 0x7f2c0ddb0f45
+0x0000000001495ef0    0x240  at 0x7f2c0ddb0f45
+0x0000000001496140    0x240  at 0x7f2c0ddb0f45
+0x0000000001496390    0x240  at 0x7f2c0ddb0f45
+0x00000000014965e0    0x240  at 0x7f2c0ddb0f45
+0x0000000001496830    0x240  at 0x7f2c0ddb0f45
+0x0000000001496a80    0x240  at 0x7f2c0ddb0f45
+0x0000000001496cd0    0x240  at 0x7f2c0ddb0f45
+0x0000000001496f20    0x240  at 0x7f2c0ddb0f45
+0x0000000001497170    0x240  at 0x7f2c0ddb0f45
+0x00000000014973c0    0x240  at 0x7f2c0ddb0f45
+0x0000000001497610    0x240  at 0x7f2c0ddb0f45
+0x0000000001497860    0x240  at 0x7f2c0ddb0f45
+0x0000000001497ab0    0x240  at 0x7f2c0ddb0f45
+0x0000000001497d00    0x240  at 0x7f2c0ddb0f45
+0x0000000001497f50    0x240  at 0x7f2c0ddb0f45
+0x00000000014981a0    0x240  at 0x7f2c0ddb0f45
+
+I asked the TA about this memory leak and he said that a lot of these are probably thread IDs, which will
+ only be freed once the process has stopped. I'm not sure what the first 3 leaks are, but I assume they 
+are also just related to openMP.
+
+
